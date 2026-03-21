@@ -4,7 +4,7 @@ A self-hostable AI coding agent with a web UI. Chat with an LLM that can read, e
 
 See blog post [here](https://lucasalvo.com/post/building-a-simple-coding-agent-on-a-raspberry-pi-zero) for the motivation behind this project.
 
-This builds off of [srAgent](https://github.com/Midnight-Owl-1/srAgent), which is a very simple Coding Agent that runs in your CLI at only 220 lines of easy-to-read code.
+This builds off of [srAgent](https://github.com/Midnight-Owl-1/srAgent), which is a very simple Coding Agent that runs in your CLI at only 220 lines of easy-to-read python code.
 
 ![Image of the app running](http://lucasalvo.com/images/21Mar2026/front-shot.png)
 
