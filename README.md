@@ -4,6 +4,8 @@ A self-hostable AI coding agent with a web UI. Chat with an LLM that can read, e
 
 See blog post [here](https://lucasalvo.com/post/building-a-simple-coding-agent-on-a-raspberry-pi-zero) for the motivation behind this project.
 
+This builds off of [srAgent](https://github.com/Midnight-Owl-1/srAgent), which is a very simple Coding Agent that runs in your CLI at only 220 lines of easy-to-read code.
+
 ![Image of the app running](http://lucasalvo.com/images/21Mar2026/front-shot.png)
 
 ## Features
@@ -45,6 +47,8 @@ On first launch, if no API key is configured you will be redirected to the Admin
 - To make a new one, log into your OpenRouter account -> navigate to [here](https://openrouter.ai/workspaces/default/keys) -> Create -> Give it a name, and a credit limit (try 25 cents to start), no expiration -> copy key
 
 The app runs at **http://{IP_ADDRESS_OF_DEVICE}:46994**.
+
+This is a progresive web app, so if you know how to give it an SSL certificate (for https), you can 'install' it like any app on your phone.
 
 ## Configuration
 
