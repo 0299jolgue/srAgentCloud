@@ -46,6 +46,7 @@ body {
 #app {
     display: flex;
     height: 100vh;
+    height: 100dvh;
     position: relative;
 }
 
@@ -952,6 +953,7 @@ body {
 /* ── Input bar ───────────────────────────────────────────────────── */
 #input-area {
     padding: 12px 18px 14px;
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
     border-top: 1px solid var(--border);
     background: var(--surface);
     flex-shrink: 0;
