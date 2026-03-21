@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>srAgent — AI Coding Agent</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.png') }}" />
+
+    <!-- Highlight.js for syntax highlighting -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}" />
+</head>
+
+<body>
+    <div id="app">
+
+        <!-- Sidebar -->
+        <div id="sidebar">
+            <div id="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">⚡</div>
+                    srAgent
+                </div>
+                <button id="btn-new-project" title="New project">+</button>
+            </div>
+
+            <div id="project-list">
+                <!-- populated by JS -->
+            </div>
+
+            <div id="sidebar-footer">
+                <a href="/admin" class="footer-link" target="_blank">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                    Database Admin
+                </a>
+                <div style="opacity:0.5; margin-top: 4px;">Port 46994 · OpenRouter API</div>
+            </div>
+        </div>
+        <div id="sidebar-overlay"></div>
+
+        <!-- Main -->
+        <div id="main">
+            <!-- Top bar -->
+            <div id="top-bar">
+                <button id="hamburger" aria-label="Open sidebar">☰</button>
+                <span id="project-title">Select a project</span>
+
+                <button id="btn-run-project" style="display:none;">▶ Run Project</button>
+
+                <button id="btn-toggle-procs">
+                    Processes <span class="count" id="proc-count">0</span>
+                </button>
+
+                <div id="agent-status">
+                    <div class="status-dot" id="status-dot"></div>
+                    <span id="status-text">Idle</span>
+                </div>
+            </div>
+
+            <!-- Processes Panel (relative to top bar) -->
+            <div id="processes-panel">
+                <div class="proc-header">
+                    <span>Running Processes</span>
+                    <button class="btn" style="padding:2px 8px; font-size:10px;" onclick="toggleProcs()">Close</button>
+                </div>
+                <div id="proc-list">
+                    <!-- procs injected here -->
+                </div>
+            </div>
+
+            <!-- Messages scroll area -->
+            <div id="chat-area">
+                <div class="no-project-state" id="no-project-state">
+                    <div class="big-icon">🤖</div>
+                    <h2>Welcome to srAgent</h2>
+                    <p>Select a project from the sidebar or create a new one to get started.</p>
+                </div>
+            </div>
+
+            <!-- Tool approval card -->
+            <div id="tool-approval-card">
+                <div class="approval-header">
+                    <span class="approval-icon">🔧</span>
+                    <span class="approval-title">Tool Call Request</span>
+                    <span class="approval-badge">Awaiting approval</span>
+                </div>
+                <div class="approval-code" id="approval-code"></div>
+                <div class="approval-actions">
+                    <button class="btn-approve" id="btn-approve">✓ Allow</button>
+                    <button class="btn-deny" id="btn-deny">✗ Deny</button>
+                    <button class="btn-stop" id="btn-stop">■ Stop Agent</button>
+                </div>
+            </div>
+
+            <!-- Input area -->
+            <div id="input-area">
+                <div class="input-wrapper">
+                    <textarea id="msg-input" rows="1" placeholder="Send a message…" disabled></textarea>
+                    <button id="btn-halt" title="Halt agent">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <rect x="4" y="4" width="16" height="16" rx="2"/>
+                        </svg>
+                    </button>
+                    <button id="btn-send" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13" />
+                            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Project Modal -->
+    <div id="modal-overlay">
+        <div class="modal-box">
+            <h3>✨ New Project</h3>
+            <input type="text" id="new-project-name" placeholder="Project name…" maxlength="64" />
+            <div class="modal-actions">
+                <button class="btn-secondary" id="btn-modal-cancel">Cancel</button>
+                <button class="btn-primary" id="btn-modal-create">Create Project</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Browser Modal -->
+    <div id="fb-overlay">
+        <div class="modal-box" style="width:560px; max-width:95vw;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+                <h3 style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">📁 <span id="fb-title"></span></h3>
+                <button class="btn-secondary" id="fb-close-btn">✕</button>
+            </div>
+            <div id="fb-breadcrumb" style="font-size:11px; color:var(--text-muted); margin-bottom:10px; word-break:break-all;"></div>
+            <div id="fb-list" style="max-height:400px; overflow-y:auto;"></div>
+            <div style="margin-top:12px; border-top:1px solid var(--border); padding-top:12px;">
+                <input type="file" id="fb-upload-input" style="display:none" />
+                <button class="btn-secondary" id="fb-upload-btn">⬆ Upload File</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Thread Modal -->
+    <div id="thread-modal-overlay">
+        <div class="modal-box">
+            <h3>💬 New Thread</h3>
+            <input type="text" id="new-thread-title" placeholder="Thread title…" maxlength="64" />
+            <div class="modal-actions">
+                <button class="btn-secondary" id="btn-thread-modal-cancel">Cancel</button>
+                <button class="btn-primary" id="btn-thread-modal-create">Create Thread</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast"></div>
+
+    <script src="{{ url_for('static', filename='index.js') }}"></script>
+</body>
+
+</html>

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.png') }}" />
+    <title>srAgent Admin - Database Management</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}" />
+</head>
+
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="/" class="back-link">
+                <i data-lucide="arrow-left" style="width: 18px; height: 18px;"></i>
+                Back to App
+            </a>
+            <h1>srAgent Database Admin</h1>
+            <button class="btn" onclick="openSettings()" style="margin-left:auto;">⚙ Settings</button>
+        </div>
+
+        <section class="card">
+            <h2>Projects</h2>
+            <table id="projects-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Path</th>
+                        <th>Created At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="projects-body">
+                    <!-- Rows injected here -->
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <!-- Messages Modal -->
+    <div id="messages-overlay" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">Messages for Project</h3>
+                <button class="btn" onclick="closeModal()">Close</button>
+            </div>
+            <div class="modal-body">
+                <table id="messages-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Role</th>
+                            <th>Type</th>
+                            <th>Content Snippet</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="messages-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function openSettings() {
+            const cfg = await fetch('/api/admin/settings').then(r => r.json());
+            document.getElementById('settings-api-key').value = cfg.api_key || '';
+            document.getElementById('settings-model').value = cfg.model || '';
+            document.getElementById('settings-api-key').type = 'password';
+            document.getElementById('btn-show-key').textContent = 'Show';
+            document.getElementById('settings-overlay').style.display = 'flex';
+        }
+
+        function closeSettings() {
+            document.getElementById('settings-overlay').style.display = 'none';
+            document.getElementById('settings-welcome').style.display = 'none';
+        }
+
+        function toggleKeyVisibility() {
+            const inp = document.getElementById('settings-api-key');
+            const btn = document.getElementById('btn-show-key');
+            inp.type = inp.type === 'password' ? 'text' : 'password';
+            btn.textContent = inp.type === 'password' ? 'Show' : 'Hide';
+        }
+
+        async function saveSettings() {
+            const api_key = document.getElementById('settings-api-key').value.trim();
+            const model = document.getElementById('settings-model').value.trim();
+            if (!api_key || !model) { alert('Both fields are required.'); return; }
+            const resp = await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ api_key, model })
+            });
+            if (resp.ok) { closeSettings(); alert('Settings saved. Changes take effect on the next API call.'); }
+            else { alert('Failed to save settings.'); }
+        }
+
+        async function init() {
+            try {
+                if (window.lucide) lucide.createIcons();
+                await loadProjects();
+                // First-startup: auto-open settings if ?setup=1
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('setup') === '1') {
+                    await openSettings();
+                    document.getElementById('settings-welcome').style.display = 'block';
+                    window.history.replaceState({}, '', '/admin');
+                }
+            } catch (e) {
+                console.error("Init failed:", e);
+            }
+        }
+
+        async function loadProjects() {
+            const body = document.getElementById('projects-body');
+            body.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 2rem; opacity: 0.5;">Loading projects...</td></tr>';
+            try {
+                const resp = await fetch('/api/projects');
+                if (!resp.ok) throw new Error("HTTP error " + resp.status);
+                const projects = await resp.json();
+                body.innerHTML = '';
+
+                if (projects.length === 0) {
+                    body.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 2rem; opacity: 0.5;">No projects found.</td></tr>';
+                    return;
+                }
+
+                for (const p of projects) {
+                    // Project row
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${p.id}</td>
+                        <td><input type="text" value="${escapeHtml(p.name)}" onchange="updateProjectName(${p.id}, this.value)"></td>
+                        <td style="font-size: 0.8rem; opacity: 0.7;">${p.path}</td>
+                        <td>${p.created_at}</td>
+                        <td>
+                            <button class="btn" onclick="toggleThreads(${p.id}, this)">▶ Threads</button>
+                            <button class="btn btn-danger" onclick="deleteProject(${p.id})">Delete</button>
+                        </td>
+                    `;
+                    body.appendChild(tr);
+
+                    // Hidden thread container row
+                    const threadRow = document.createElement('tr');
+                    threadRow.id = `thread-rows-${p.id}`;
+                    threadRow.style.display = 'none';
+                    threadRow.innerHTML = `<td colspan="5" style="padding:0"><div id="thread-list-${p.id}" class="thread-section"></div></td>`;
+                    body.appendChild(threadRow);
+                }
+            } catch (e) {
+                body.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 2rem; color: var(--danger);">Failed to load: ${e.message}</td></tr>`;
+            }
+        }
+
+        async function toggleThreads(pid, btn) {
+            const row = document.getElementById(`thread-rows-${pid}`);
+            const isOpen = row.style.display !== 'none';
+            row.style.display = isOpen ? 'none' : 'table-row';
+            btn.textContent = isOpen ? '▶ Threads' : '▼ Threads';
+            if (!isOpen) await loadThreadsFor(pid);
+        }
+
+        async function loadThreadsFor(pid) {
+            const container = document.getElementById(`thread-list-${pid}`);
+            container.innerHTML = '<div style="padding:1rem; opacity:0.5;">Loading threads…</div>';
+            try {
+                const threads = await fetch(`/api/projects/${pid}/threads`).then(r => r.json());
+                container.innerHTML = '';
+                if (!threads.length) {
+                    container.innerHTML = '<div style="padding:1rem; opacity:0.5;">No threads yet.</div>';
+                    return;
+                }
+                const tbl = document.createElement('table');
+                tbl.style.margin = '0';
+                tbl.innerHTML = `
+                    <thead><tr>
+                        <th style="padding-left:2rem">ID</th>
+                        <th>Title</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr></thead>
+                    <tbody></tbody>
+                `;
+                const tbody = tbl.querySelector('tbody');
+                threads.forEach(t => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="padding-left:2rem; opacity:0.6">${t.id}</td>
+                        <td>${escapeHtml(t.title)}</td>
+                        <td style="opacity:0.6; font-size:0.8rem">${t.created_at}</td>
+                        <td>
+                            <button class="btn" onclick="viewThreadMessages(${t.id}, \`${t.title.replace(/`/g, '\\`')}\`)">View Msgs</button>
+                            <button class="btn btn-danger" onclick="deleteThread(${t.id}, ${pid})">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                container.appendChild(tbl);
+            } catch (e) {
+                container.innerHTML = `<div style="padding:1rem; color:var(--danger)">Failed: ${e.message}</div>`;
+            }
+        }
+
+        async function updateProjectName(id, newName) {
+            await fetch(`/api/admin/projects/${id}/name`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName })
+            });
+        }
+
+        async function deleteProject(id) {
+            if (!confirm('Delete project and ALL its threads and messages?')) return;
+            try {
+                await fetch(`/api/admin/projects/${id}`, { method: 'DELETE' });
+                loadProjects();
+            } catch (e) {
+                alert("Failed: " + e.message);
+            }
+        }
+
+        async function deleteThread(tid, pid) {
+            if (!confirm('Delete this thread and all its messages?')) return;
+            try {
+                await fetch(`/api/admin/threads/${tid}`, { method: 'DELETE' });
+                loadThreadsFor(pid);
+            } catch (e) {
+                alert("Failed: " + e.message);
+            }
+        }
+
+        let _viewingTid = null, _viewingName = '';
+
+        async function viewThreadMessages(tid, name) {
+            _viewingTid = tid;
+            _viewingName = name;
+            document.getElementById('modal-title').innerText = `Messages: ${name}`;
+            document.getElementById('messages-overlay').style.display = 'flex';
+
+            const resp = await fetch(`/api/threads/${tid}/messages`);
+            const msgs = await resp.json();
+            const body = document.getElementById('messages-body');
+            body.innerHTML = '';
+
+            if (!msgs.length) {
+                body.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:1rem; opacity:0.5;">No messages.</td></tr>';
+                return;
+            }
+
+            msgs.forEach(m => {
+                const tr = document.createElement('tr');
+                const snippet = m.content.length > 80 ? m.content.substring(0, 80) + '...' : m.content;
+                tr.innerHTML = `
+                    <td>${m.id}</td>
+                    <td>${m.role}</td>
+                    <td><span class="msg-type">${m.type}</span></td>
+                    <td style="font-size: 0.8rem; max-width: 400px;">${escapeHtml(snippet)}</td>
+                    <td><button class="btn btn-danger" onclick="deleteMessage(${m.id})">Delete</button></td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        async function deleteMessage(mid) {
+            try {
+                await fetch(`/api/admin/messages/${mid}`, { method: 'DELETE' });
+                viewThreadMessages(_viewingTid, _viewingName);
+            } catch (e) {
+                alert("Failed: " + e.message);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('messages-overlay').style.display = 'none';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        init();
+    </script>    <!-- Settings Modal -->
+    <div id="settings-overlay" class="modal-overlay" onclick="if(event.target===this)closeSettings()">
+        <div class="modal" style="max-width:500px;">
+            <div class="modal-header">
+                <h3>⚙ API Settings</h3>
+                <button class="btn" onclick="closeSettings()">Close</button>
+            </div>
+            <div class="modal-body" style="padding:1.5rem; display:flex; flex-direction:column; gap:1.2rem;">
+                <div id="settings-welcome" style="display:none; background:var(--accent); color:#fff; padding:12px 16px; border-radius:8px; font-size:0.9rem;">
+                    👋 <strong>Welcome to srAgentCloud!</strong><br>Enter your OpenRouter API key below to get started.
+                </div>
+                <div>
+                    <label style="display:block; font-size:0.85rem; color:var(--text-secondary); margin-bottom:6px;">OpenRouter API Key</label>
+                    <div style="display:flex; gap:8px;">
+                        <input type="password" id="settings-api-key" style="flex:1;" placeholder="sk-or-v1-…" />
+                        <button class="btn" onclick="toggleKeyVisibility()" id="btn-show-key" style="flex-shrink:0;">Show</button>
+                    </div>
+                </div>
+                <div>
+                    <label style="display:block; font-size:0.85rem; color:var(--text-secondary); margin-bottom:6px;">Model</label>
+                    <input type="text" id="settings-model" style="width:100%;" placeholder="google/gemini-3-flash-preview" />
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:0.5rem;">
+                    <button class="btn" onclick="closeSettings()">Cancel</button>
+                    <button class="btn" onclick="saveSettings()" style="background:var(--accent);border-color:var(--accent);color:#fff;">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>
