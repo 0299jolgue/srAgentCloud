@@ -57,7 +57,7 @@ Settings are stored in `src/config.json` (auto-created from `config.example.json
 | Key | Description |
 |---|---|
 | `api_key` | Your OpenRouter API key (`sk-or-v1-…`). Get one at [openrouter.ai/keys](https://openrouter.ai/keys) |
-| `model` | The model identifier to use (default: `google/gemini-2.5-flash`). Browse models at [openrouter.ai/models](https://openrouter.ai/models) |
+| `model` | The model identifier to use (default: `gemini-3-flash-preview`). Browse models at [openrouter.ai/models](https://openrouter.ai/models) |
 
 You can change these at any time from the **Admin → ⚙ Settings** modal, or by editing `src/config.json` directly.
 
