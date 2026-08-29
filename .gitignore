@@ -3,6 +3,5 @@ __pycache__/
 venv/
 projects/
 src/sragent.db
-src/config.json
 nohup.out
 push.bat
