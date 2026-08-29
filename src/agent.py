@@ -1,12 +1,45 @@
 import json
+import threading
+import time
+
 import requests
 
-from config import MAX_ITERATIONS, AGENT_MD, read_config
+from config import (
+    AGENT_MD,
+    LLM_MAX_RETRIES,
+    LLM_REQUESTS_PER_MINUTE,
+    MAX_ITERATIONS,
+    read_config,
+)
 from database import save_message
 from state import get_state
 from tools import TOOLS, execute_tool
 
 # ─── LLM helpers ──────────────────────────────────────────────────────────────
+
+# NVIDIA limits this API key to 40 requests per minute.  The limiter is shared
+# by every agent thread so simultaneous chats cannot create a burst above it.
+_REQUEST_INTERVAL = 60 / LLM_REQUESTS_PER_MINUTE
+_request_lock = threading.Lock()
+_next_request_at = 0.0
+
+def wait_for_request_slot():
+    """Reserve the next global NVIDIA API request slot."""
+    global _next_request_at
+    with _request_lock:
+        now = time.monotonic()
+        wait_time = max(0.0, _next_request_at - now)
+        _next_request_at = max(now, _next_request_at) + _REQUEST_INTERVAL
+
+    if wait_time:
+        time.sleep(wait_time)
+
+def retry_delay(response: requests.Response) -> float:
+    """Use the provider's retry delay when available, with a safe fallback."""
+    try:
+        return max(_REQUEST_INTERVAL, float(response.headers.get("Retry-After", 5)))
+    except (TypeError, ValueError):
+        return max(_REQUEST_INTERVAL, 5)
 
 def build_system_prompt(project_path: str) -> str:
     with open(AGENT_MD, "r", encoding="utf-8") as f:
@@ -50,9 +83,17 @@ def call_llm(messages: list) -> str:
         "messages":        messages,
         "response_format": {"type": "json_object"},
     }
-    resp = requests.post(url, headers=headers, data=json.dumps(payload), timeout=60)
-    if resp.status_code == 200:
-        return resp.json()["choices"][0]["message"]["content"]
+    for attempt in range(LLM_MAX_RETRIES + 1):
+        wait_for_request_slot()
+        resp = requests.post(url, headers=headers, data=json.dumps(payload), timeout=60)
+        if resp.status_code == 200:
+            return resp.json()["choices"][0]["message"]["content"]
+
+        if resp.status_code != 429 or attempt == LLM_MAX_RETRIES:
+            break
+
+        time.sleep(retry_delay(resp))
+
     return json.dumps({"actions": [{"type": "complete", "content": f"LLM error {resp.status_code}: {resp.text}"}]})
 
 def parse_response(response: str) -> list:

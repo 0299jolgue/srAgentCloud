@@ -46,7 +46,7 @@ bash run.sh
 On first launch, if no API key is configured you will be redirected to the Admin settings page to enter your **NVIDIA API key**.
 - Create one in the [NVIDIA API Catalog](https://build.nvidia.com/settings/api-keys), then copy the generated key.
 
-The app runs at **http://{IP_ADDRESS_OF_DEVICE}:46994**.
+The app runs at **http://{IP_ADDRESS_OF_DEVICE}**.
 
 This is a progresive web app, so if you know how to give it an SSL certificate (for https), you can 'install' it like any app on your phone.
 
