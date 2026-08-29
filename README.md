@@ -56,8 +56,12 @@ Settings are stored in `src/config.json` (auto-created from `config.example.json
 
 | Key | Description |
 |---|---|
-| `api_key` | Your NVIDIA API key (`nvapi-…`). Create one in the [NVIDIA API Catalog](https://build.nvidia.com/settings/api-keys). |
-| `model` | The model identifier to use (default: `moonshotai/kimi-k3`). |
+| `provider` | Selected provider (default: `nvidia`). |
+| `base_url` | Provider chat-completions endpoint. It is automatically set for supported providers; enter it manually for a custom provider. |
+| `api_key` | API key for the selected provider. |
+| `model` | Model identifier for the selected provider (default: `moonshotai/kimi-k3`). |
+
+The **Admin → ⚙ Settings** modal includes NVIDIA NIM, OpenAI, OpenRouter, Groq, Together AI, Mistral AI, DeepSeek, xAI, Cerebras, and Fireworks AI. Select **Personalizado** to use any OpenAI-compatible provider by entering its chat-completions base URL, API key, and model.
 
 You can change these at any time from the **Admin → ⚙ Settings** modal, or by editing `src/config.json` directly.
 

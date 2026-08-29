@@ -7,6 +7,7 @@ import requests
 from config import (
     AGENT_MD,
     LLM_MAX_RETRIES,
+    LLM_RATE_LIMIT_COOLDOWN,
     LLM_REQUESTS_PER_MINUTE,
     MAX_ITERATIONS,
     read_config,
@@ -22,24 +23,36 @@ from tools import TOOLS, execute_tool
 _REQUEST_INTERVAL = 60 / LLM_REQUESTS_PER_MINUTE
 _request_lock = threading.Lock()
 _next_request_at = 0.0
+_rate_limit_cooldown_until = 0.0
 
 def wait_for_request_slot():
     """Reserve the next global NVIDIA API request slot."""
     global _next_request_at
     with _request_lock:
         now = time.monotonic()
-        wait_time = max(0.0, _next_request_at - now)
-        _next_request_at = max(now, _next_request_at) + _REQUEST_INTERVAL
+        available_at = max(_next_request_at, _rate_limit_cooldown_until)
+        wait_time = max(0.0, available_at - now)
+        _next_request_at = max(now, available_at) + _REQUEST_INTERVAL
 
     if wait_time:
         time.sleep(wait_time)
 
 def retry_delay(response: requests.Response) -> float:
-    """Use the provider's retry delay when available, with a safe fallback."""
+    """Use NVIDIA's retry delay or wait for its rolling rate-limit window."""
     try:
-        return max(_REQUEST_INTERVAL, float(response.headers.get("Retry-After", 5)))
-    except (TypeError, ValueError):
-        return max(_REQUEST_INTERVAL, 5)
+        retry_after = float(response.headers.get("Retry-After"))
+    except (AttributeError, TypeError, ValueError):
+        retry_after = 0
+    return max(retry_after, LLM_RATE_LIMIT_COOLDOWN)
+
+def apply_rate_limit_cooldown(response: requests.Response):
+    """Pause every agent after a 429, not only the agent that received it."""
+    global _rate_limit_cooldown_until
+    with _request_lock:
+        _rate_limit_cooldown_until = max(
+            _rate_limit_cooldown_until,
+            time.monotonic() + retry_delay(response),
+        )
 
 def build_system_prompt(project_path: str) -> str:
     with open(AGENT_MD, "r", encoding="utf-8") as f:
@@ -73,7 +86,7 @@ If the project has a `run.sh` script, the user can also run it directly from the
 
 def call_llm(messages: list) -> str:
     cfg = read_config()
-    url = "https://integrate.api.nvidia.com/v1/chat/completions"
+    url = cfg["base_url"]
     headers = {
         "Authorization": f"Bearer {cfg['api_key']}",
         "Content-Type":  "application/json",
@@ -92,7 +105,7 @@ def call_llm(messages: list) -> str:
         if resp.status_code != 429 or attempt == LLM_MAX_RETRIES:
             break
 
-        time.sleep(retry_delay(resp))
+        apply_rate_limit_cooldown(resp)
 
     return json.dumps({"actions": [{"type": "complete", "content": f"LLM error {resp.status_code}: {resp.text}"}]})
 

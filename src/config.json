@@ -1,4 +1,6 @@
 {
+    "provider": "nvidia",
+    "base_url": "https://integrate.api.nvidia.com/v1/chat/completions",
     "api_key": "",
     "model": "moonshotai/kimi-k3"
 }

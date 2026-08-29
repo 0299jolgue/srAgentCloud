@@ -68,13 +68,35 @@
     </div>
 
     <script>
+        let providerOptions = {};
+
         async function openSettings() {
             const cfg = await fetch('/api/admin/settings').then(r => r.json());
+            providerOptions = cfg.providers || {};
+            const provider = document.getElementById('settings-provider');
+            provider.innerHTML = Object.entries(providerOptions)
+                .map(([id, option]) => `<option value="${id}">${escapeHtml(option.name)}</option>`)
+                .join('');
+            provider.value = cfg.provider || 'nvidia';
             document.getElementById('settings-api-key').value = cfg.api_key || '';
             document.getElementById('settings-model').value = cfg.model || '';
+            document.getElementById('settings-base-url').value = cfg.base_url || '';
             document.getElementById('settings-api-key').type = 'password';
             document.getElementById('btn-show-key').textContent = 'Show';
+            updateProviderFields(false);
             document.getElementById('settings-overlay').style.display = 'flex';
+        }
+
+        function updateProviderFields(useDefault = true) {
+            const provider = document.getElementById('settings-provider').value;
+            const option = providerOptions[provider];
+            const isCustom = provider === 'custom';
+            document.getElementById('settings-custom-url').style.display = isCustom ? 'block' : 'none';
+            document.getElementById('settings-api-key').placeholder = option?.key_placeholder || 'API key';
+            if (useDefault && option) {
+                document.getElementById('settings-model').value = option.model || '';
+                document.getElementById('settings-base-url').value = option.base_url || '';
+            }
         }
 
         function closeSettings() {
@@ -90,16 +112,21 @@
         }
 
         async function saveSettings() {
+            const provider = document.getElementById('settings-provider').value;
             const api_key = document.getElementById('settings-api-key').value.trim();
             const model = document.getElementById('settings-model').value.trim();
-            if (!api_key || !model) { alert('Both fields are required.'); return; }
+            const base_url = document.getElementById('settings-base-url').value.trim();
+            if (!api_key || !model || (provider === 'custom' && !base_url)) {
+                alert('Provider, API key, model, and custom URL (when applicable) are required.');
+                return;
+            }
             const resp = await fetch('/api/admin/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ api_key, model })
+                body: JSON.stringify({ provider, api_key, model, base_url })
             });
             if (resp.ok) { closeSettings(); alert('Settings saved. Changes take effect on the next API call.'); }
-            else { alert('Failed to save settings.'); }
+            else { alert((await resp.json()).error || 'Failed to save settings.'); }
         }
 
         async function init() {
@@ -288,8 +315,16 @@
         }
 
         init();
-                    👋 <strong>Welcome to srAgentCloud!</strong><br>Enter your NVIDIA API key below to get started.
-                    <label style="display:block; font-size:0.85rem; color:var(--text-secondary); margin-bottom:6px;">NVIDIA API Key</label>
+                    👋 <strong>Welcome to srAgentCloud!</strong><br>Choose a provider and enter its API key to get started.
+                </div>
+                <div>
+                    <label style="display:block; font-size:0.85rem; color:var(--text-secondary); margin-bottom:6px;">Provider</label>
+                    <select id="settings-provider" style="width:100%;" onchange="updateProviderFields()"></select>
+                </div>
+                <div id="settings-custom-url" style="display:none;">
+                    <label style="display:block; font-size:0.85rem; color:var(--text-secondary); margin-bottom:6px;">Chat completions base URL</label>
+                    <input type="url" id="settings-base-url" style="width:100%;" placeholder="https://your-provider.example/v1/chat/completions" />
+                    <label style="display:block; font-size:0.85rem; color:var(--text-secondary); margin-bottom:6px;">API Key</label>
                         <input type="password" id="settings-api-key" style="flex:1;" placeholder="nvapi-…" />
                     <input type="text" id="settings-model" style="width:100%;" placeholder="moonshotai/kimi-k3" />
             <div class="modal-header">
