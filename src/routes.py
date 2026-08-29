@@ -12,7 +12,7 @@ from datetime import datetime
 
 from flask import request, jsonify, render_template, Response, stream_with_context, send_file
 
-from config import PROJECTS_DIR, DB_PATH, read_config, write_config
+from config import PROJECTS_DIR, DB_PATH, PROVIDERS, read_config, write_config
 from database import get_db, save_message
 from state import get_state, _running_processes, _proc_lock
 from agent import build_system_prompt, run_agent
@@ -413,16 +413,30 @@ def register_routes(app):
 
     @app.route("/api/admin/settings", methods=["GET"])
     def get_settings():
-        return jsonify(read_config())
+        cfg = read_config()
+        cfg["providers"] = PROVIDERS
+        return jsonify(cfg)
 
     @app.route("/api/admin/settings", methods=["POST"])
     def save_settings():
         data = request.get_json() or {}
-        cfg = read_config()
-        if "api_key" in data:
-            cfg["api_key"] = data["api_key"].strip()
-        if "model" in data:
-            cfg["model"] = data["model"].strip()
+        provider = data.get("provider", "nvidia").strip()
+        if provider not in PROVIDERS:
+            return jsonify({"error": "Unknown provider"}), 400
+
+        preset = PROVIDERS[provider]
+        base_url = data.get("base_url", "").strip() if provider == "custom" else preset["base_url"]
+        if not base_url.startswith(("https://", "http://")):
+            return jsonify({"error": "A valid chat completions base URL is required"}), 400
+
+        cfg = {
+            "provider": provider,
+            "base_url": base_url,
+            "api_key": data.get("api_key", "").strip(),
+            "model": data.get("model", "").strip(),
+        }
+        if not cfg["api_key"] or not cfg["model"]:
+            return jsonify({"error": "API key and model are required"}), 400
         write_config(cfg)
         return jsonify({"status": "ok"})
 
