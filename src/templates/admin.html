@@ -288,9 +288,10 @@
         }
 
         init();
-    </script>    <!-- Settings Modal -->
-    <div id="settings-overlay" class="modal-overlay" onclick="if(event.target===this)closeSettings()">
-        <div class="modal" style="max-width:500px;">
+                    👋 <strong>Welcome to srAgentCloud!</strong><br>Enter your NVIDIA API key below to get started.
+                    <label style="display:block; font-size:0.85rem; color:var(--text-secondary); margin-bottom:6px;">NVIDIA API Key</label>
+                        <input type="password" id="settings-api-key" style="flex:1;" placeholder="nvapi-…" />
+                    <input type="text" id="settings-model" style="width:100%;" placeholder="moonshotai/kimi-k3" />
             <div class="modal-header">
                 <h3>⚙ API Settings</h3>
                 <button class="btn" onclick="closeSettings()">Close</button>
