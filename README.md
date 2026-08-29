@@ -1,6 +1,6 @@
 # srAgentCloud
 
-A self-hostable AI coding agent with a web UI. Chat with an LLM that can read, edit, and run code in sandboxed project directories - powered by OpenRouter, and runnable on a Raspberry Pi Zero.
+A self-hostable AI coding agent with a web UI. Chat with an LLM that can read, edit, and run code in sandboxed project directories - powered by NVIDIA NIM using Kimi K3, and runnable on a Raspberry Pi Zero.
 
 See blog post [here](https://lucasalvo.com/post/building-a-simple-coding-agent-on-a-raspberry-pi-zero) for the motivation behind this project.
 
@@ -43,8 +43,8 @@ pip install -r requirements.txt
 bash run.sh
 ```
 
-On first launch, if no API key is configured you will be redirected to the Admin settings page to enter your **OpenRouter API key**.
-- To make a new one, log into your OpenRouter account -> navigate to [here](https://openrouter.ai/workspaces/default/keys) -> Create -> Give it a name, and a credit limit (try 25 cents to start), no expiration -> copy key
+On first launch, if no API key is configured you will be redirected to the Admin settings page to enter your **NVIDIA API key**.
+- Create one in the [NVIDIA API Catalog](https://build.nvidia.com/settings/api-keys), then copy the generated key.
 
 The app runs at **http://{IP_ADDRESS_OF_DEVICE}:46994**.
 
@@ -56,8 +56,8 @@ Settings are stored in `src/config.json` (auto-created from `config.example.json
 
 | Key | Description |
 |---|---|
-| `api_key` | Your OpenRouter API key (`sk-or-v1-…`). Get one at [openrouter.ai/keys](https://openrouter.ai/keys) |
-| `model` | The model identifier to use (default: `gemini-3-flash-preview`). Browse models at [openrouter.ai/models](https://openrouter.ai/models) |
+| `api_key` | Your NVIDIA API key (`nvapi-…`). Create one in the [NVIDIA API Catalog](https://build.nvidia.com/settings/api-keys). |
+| `model` | The model identifier to use (default: `moonshotai/kimi-k3`). |
 
 You can change these at any time from the **Admin → ⚙ Settings** modal, or by editing `src/config.json` directly.
 
