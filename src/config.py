@@ -3,6 +3,8 @@ import json
 import shutil
 
 MAX_ITERATIONS = 10
+LLM_REQUESTS_PER_MINUTE = 40
+LLM_MAX_RETRIES = 3
 
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
 PROJECTS_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "projects"))
