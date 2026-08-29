@@ -40,7 +40,7 @@ If the project has a `run.sh` script, the user can also run it directly from the
 
 def call_llm(messages: list) -> str:
     cfg = read_config()
-    url = "https://openrouter.ai/api/v1/chat/completions"
+    url = "https://integrate.api.nvidia.com/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {cfg['api_key']}",
         "Content-Type":  "application/json",
